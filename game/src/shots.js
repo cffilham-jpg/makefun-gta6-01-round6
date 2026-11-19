@@ -1,79 +1,93 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// Tidewater Heat — shots.js
+// Screenshot staging: reads URL query parameters and sets up a scene
+// before the first frame, so every screenshot is a real render of the
+// game in a known state. ?shot=chase|foot|drive|shootout, ?autostart=1,
+// plus overrides: ?mission=N, ?wanted=N, ?cash=N, ?weapon=pistol|smg|shotgun.
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
+import { spawnCar, enterCar } from "./vehicles.js";
+import { PIER } from "./city.js";
 
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+export function shotParams() {
+  const q = new URLSearchParams(window.location.search);
+  return {
+    shot: q.get("shot") || "",
+    autostart: q.get("autostart") === "1",
+    mission: q.has("mission") ? parseInt(q.get("mission"), 10) : null,
+    wanted: q.has("wanted") ? parseInt(q.get("wanted"), 10) : null,
+    cash: q.has("cash") ? parseInt(q.get("cash"), 10) : null,
+    weapon: q.get("weapon") || null,
+  };
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
-  }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
+function placePlayer(G, x, z, heading) {
+  const p = G.player;
+  p.group.position.set(x, 0, z);
+  p.heading = heading;
+  p.group.rotation.y = heading;
+  G.camYaw = heading + Math.PI;
 }
 
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+function giveCar(G, type, x, z, heading) {
+  const car = spawnCar(G, type, x, z, heading);
+  enterCar(G, car);
+  car.speed = 12;
+  return car;
+}
+
+export function stageShot(G, params) {
+  const p = G.player;
+  if (params.cash !== null && !Number.isNaN(params.cash)) G.cash = params.cash;
+  if (params.weapon && ["pistol", "smg", "shotgun"].includes(params.weapon)) {
+    p.weapon = params.weapon;
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
+
+  switch (params.shot) {
+    case "chase": {
+      // Cover shot: three-star police chase downtown, HUD + minimap live.
+      placePlayer(G, 0, 40, 0);
+      giveCar(G, "sport", 0, 40, 0);
+      G.startMission(3);
+      G.setWanted(3);
+      // Two cruisers closing in from the front and the side.
+      spawnCar(G, "police", 10, 5, Math.PI);
+      spawnCar(G, "police", -14, 70, 0);
+      G.policeCars.push(...G.cars.slice(-2));
+      G.addMessage("3 stars! Lose the cops and reach the safehouse.");
+      break;
+    }
+    case "foot": {
+      // Rico on foot in the city, mission 1 briefing up.
+      placePlayer(G, -12, 24, Math.PI * 0.75);
+      G.startMission(0);
+      break;
+    }
+    case "drive": {
+      // Driving downtown on the harbor run.
+      placePlayer(G, 40, -80, 0);
+      giveCar(G, "sedan", 40, -80, 0);
+      G.startMission(1);
+      break;
+    }
+    case "shootout": {
+      // The pier shootout: SMG out, Red Jacks on the deck. Starting
+      // mission 3 already spawns the gang via its first step, and the
+      // player spawns inside the approach radius, so the fight is live
+      // on the first frame.
+      placePlayer(G, PIER.x - 30, PIER.z + 6, Math.PI / 2);
+      p.weapon = "smg";
+      G.startMission(2);
+      G.addMessage("Red Jacks on the pier — take them all down!");
+      break;
+    }
+    default:
+      break;
   }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+
+  if (params.mission !== null && !Number.isNaN(params.mission)) {
+    G.startMission(Math.max(0, Math.min(4, params.mission)));
+  }
+  if (params.wanted !== null && !Number.isNaN(params.wanted)) {
+    G.setWanted(params.wanted);
+  }
+  window.__shotReady = true;
 }

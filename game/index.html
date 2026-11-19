@@ -1,19 +1,96 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-</style>
+<title>Tidewater Heat — Open-World Crime in Tidewater Bay</title>
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
+<div id="app"></div>
+
+<!-- In-game HUD -->
+<div id="hud" class="hidden">
+  <div id="hud-top-left">
+    <div id="health-row"><span class="hud-label">HEALTH</span><div id="health-bar"><div id="health-fill"></div></div><span id="health-text">100</span></div>
+    <div id="cash-row"><span class="hud-label">CASH</span><span id="cash">$0</span></div>
+    <div id="stars-row"><span id="stars"></span></div>
+  </div>
+  <div id="hud-top-right">
+    <div id="minimap-wrap"><canvas id="minimap" width="170" height="170"></canvas></div>
+    <div id="clock">TIDEWATER BAY</div>
+  </div>
+  <div id="hud-bottom-left">
+    <div id="objective-box"><span class="hud-label">OBJECTIVE</span><span id="objective">—</span></div>
+    <div id="messages"></div>
+  </div>
+  <div id="hud-bottom-right">
+    <div id="speed-row"><span id="speed">0</span><span class="hud-unit">km/h</span></div>
+    <div id="weapon-row"><span id="weapon">PISTOL</span><span id="ammo">12 / 48</span></div>
+    <div id="hint">E — steal / exit car &nbsp;·&nbsp; 1/2/3 — weapon &nbsp;·&nbsp; P — pause</div>
+  </div>
+  <div id="crosshair">+</div>
+  <div id="damage-flash"></div>
+</div>
+
+<!-- Mission briefing banner -->
+<div id="briefing" class="hidden">
+  <div id="briefing-title"></div>
+  <div id="briefing-text"></div>
+</div>
+
+<!-- Start screen -->
+<div id="start-screen" class="screen">
+  <div class="screen-panel">
+    <h1>TIDEWATER <span>HEAT</span></h1>
+    <p class="tagline">Rico "Reef" Marlowe is out — and Tidewater Bay owes him.</p>
+    <p class="blurb">Steal cars, dodge the law, and take back the docks in a sun-soaked
+    coastal city that never stops moving. Five story missions. Five stars of heat.</p>
+    <div class="btn-row">
+      <button id="btn-start">NEW GAME</button>
+      <button id="btn-continue" class="hidden">CONTINUE</button>
+    </div>
+    <div id="save-info"></div>
+    <div class="controls">
+      <span><b>WASD</b> move / drive</span><span><b>Mouse</b> look</span>
+      <span><b>E</b> steal car</span><span><b>Click / F</b> shoot</span>
+      <span><b>1 2 3</b> weapons</span><span><b>R</b> reload</span>
+      <span><b>Shift</b> sprint</span><span><b>Space</b> jump / brake</span>
+      <span><b>P</b> pause</span><span><b>M</b> mute</span>
+    </div>
+  </div>
+</div>
+
+<!-- Pause screen -->
+<div id="pause-screen" class="screen hidden">
+  <div class="screen-panel">
+    <h2>PAUSED</h2>
+    <p class="tagline">Tidewater Bay waits for no one. Except now.</p>
+    <div class="btn-row">
+      <button id="btn-resume">RESUME</button>
+      <button id="btn-restart">RESTART</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game over screen -->
+<div id="dead-screen" class="screen hidden">
+  <div class="screen-panel">
+    <h2 class="wasted">WASTED</h2>
+    <p class="tagline" id="dead-text">Rico went down in Tidewater Bay.</p>
+    <div class="btn-row">
+      <button id="btn-retry">TRY AGAIN</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

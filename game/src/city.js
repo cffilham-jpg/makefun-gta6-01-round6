@@ -47,6 +47,26 @@ function makeWindowTexture(rng, base) {
   return tex;
 }
 
+// Asphalt with a dashed center line, tiled along the road's length.
+// Vertical dashes for the north-south roads, horizontal for east-west.
+function makeRoadTexture(vertical) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#2f3336";
+  g.fillRect(0, 0, 64, 64);
+  g.fillStyle = "#d8d8c8";
+  if (vertical) g.fillRect(30, 16, 4, 32);
+  else g.fillRect(16, 30, 32, 4);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(vertical ? 1 : 24, vertical ? 24 : 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function box(w, h, d, color, x, y, z, opts = {}) {
   const mat = opts.map
     ? new THREE.MeshStandardMaterial({ map: opts.map, roughness: 0.9 })
@@ -71,7 +91,7 @@ export function buildCity(G) {
   const sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
   sun.position.set(120, 180, 80);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.left = -260; sun.shadow.camera.right = 260;
   sun.shadow.camera.top = 260; sun.shadow.camera.bottom = -260;
   sun.shadow.camera.far = 600;
@@ -96,26 +116,23 @@ export function buildCity(G) {
   slab.receiveShadow = true;
   scene.add(slab);
 
-  // Roads: asphalt strips along every grid line, plus pale center dashes.
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x2f3336, roughness: 1 });
-  const dashMat = new THREE.MeshStandardMaterial({ color: 0xd8d8c8, roughness: 1 });
+  // Roads: asphalt strips along every grid line, with a dashed center
+  // line baked into shared canvas textures — one draw call per road.
+  const roadTexX = makeRoadTexture(false);
+  const roadTexZ = makeRoadTexture(true);
+  const roadMatX = new THREE.MeshStandardMaterial({ map: roadTexX, roughness: 1 });
+  const roadMatZ = new THREE.MeshStandardMaterial({ map: roadTexZ, roughness: 1 });
   for (const c of ROAD_LINES) {
-    const rx = new THREE.Mesh(new THREE.PlaneGeometry(380, ROAD_WIDTH), roadMat);
+    const rx = new THREE.Mesh(new THREE.PlaneGeometry(380, ROAD_WIDTH), roadMatX);
     rx.rotation.x = -Math.PI / 2;
     rx.position.set(0, 0.03, c);
     rx.receiveShadow = true;
     scene.add(rx);
-    const rz = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, 380), roadMat);
+    const rz = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, 380), roadMatZ);
     rz.rotation.x = -Math.PI / 2;
     rz.position.set(c, 0.03, 0);
     rz.receiveShadow = true;
     scene.add(rz);
-    for (let d = -180; d <= 180; d += 16) {
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.7), dashMat);
-      dash.rotation.x = -Math.PI / 2;
-      dash.position.set(d, 0.05, c);
-      scene.add(dash);
-    }
   }
 
   // Beach sand and the bay water to the east.

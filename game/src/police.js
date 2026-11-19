@@ -156,7 +156,11 @@ export function updatePolice(G, dt) {
   // Foot officers join at 3 stars: two per star above two.
   const wantCops = G.wanted >= 3 ? (G.wanted - 2) * 2 : 0;
   const aliveCops = G.officers.filter((o) => !o.dead).length;
-  if (aliveCops < wantCops && Math.random() < dt * 1.5) spawnOfficer(G, playerPos);
+  G._officerTimer = (G._officerTimer || 0) + dt;
+  if (aliveCops < wantCops && G._officerTimer > 0.8) {
+    G._officerTimer = 0;
+    spawnOfficer(G, playerPos);
+  }
   if (wantCops === 0) {
     for (const o of G.officers) { if (!o.dead) { o.dead = true; o.deadTimer = 0.5; } }
   }

@@ -166,9 +166,20 @@ export function updateFootCamera(G, dt) {
     G.camYaw += diff * Math.min(1, 1.5 * dt);
   }
   const dist = 7.5;
-  const cx = pos.x + Math.sin(G.camYaw) * Math.cos(G.camPitch) * dist;
-  const cz = pos.z + Math.cos(G.camYaw) * Math.cos(G.camPitch) * dist;
-  const cy = pos.y + 2 + Math.sin(G.camPitch) * dist;
-  G.camera.position.lerp(new THREE.Vector3(cx, cy, cz), Math.min(1, 8 * dt));
+  // Pull the camera in when a building would block the view.
+  let clearDist = dist;
+  while (clearDist > 2.5) {
+    const tx = pos.x + Math.sin(G.camYaw) * Math.cos(G.camPitch) * clearDist;
+    const tz = pos.z + Math.cos(G.camYaw) * Math.cos(G.camPitch) * clearDist;
+    if (!G.hitsBuilding(tx, tz, 0.6)) break;
+    clearDist -= 1;
+  }
+  const cx = pos.x + Math.sin(G.camYaw) * Math.cos(G.camPitch) * clearDist;
+  const cz = pos.z + Math.cos(G.camYaw) * Math.cos(G.camPitch) * clearDist;
+  const cy = pos.y + 2 + Math.sin(G.camPitch) * clearDist;
+  const target = new THREE.Vector3(cx, cy, cz);
+  // Snap when far away (spawn, staging, respawn) instead of a long swoop.
+  if (G.camera.position.distanceTo(target) > 30) G.camera.position.copy(target);
+  else G.camera.position.lerp(target, Math.min(1, 8 * dt));
   G.camera.lookAt(pos.x, pos.y + 1.6, pos.z);
 }

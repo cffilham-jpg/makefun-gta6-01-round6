@@ -48,16 +48,17 @@ export function stageShot(G, params) {
       giveCar(G, "sport", 0, 40, 0);
       G.startMission(3);
       G.setWanted(3);
-      // Two cruisers closing in from the front and the side.
-      spawnCar(G, "police", 10, 5, Math.PI);
-      spawnCar(G, "police", -14, 70, 0);
+      // Two cruisers ahead of the player, in frame: one oncoming, one alongside.
+      spawnCar(G, "police", 5, 78, Math.PI);
+      spawnCar(G, "police", -6, 62, 0);
       G.policeCars.push(...G.cars.slice(-2));
       G.addMessage("3 stars! Lose the cops and reach the safehouse.");
       break;
     }
     case "foot": {
-      // Rico on foot in the city, mission 1 briefing up.
-      placePlayer(G, -12, 24, Math.PI * 0.75);
+      // Rico on foot in the city, mission 1 briefing up. Standing on the
+      // road at x=0 keeps the camera clear of buildings.
+      placePlayer(G, 0, 24, Math.PI);
       G.startMission(0);
       break;
     }

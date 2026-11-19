@@ -229,10 +229,19 @@ function driveTraffic(G, car, dt) {
 function updateDriveCamera(G, dt) {
   const car = G.player.inCar;
   const pos = car.group.position;
-  const back = 10.5 + Math.abs(car.speed) * 0.08;
-  const cx = pos.x - Math.sin(car.heading) * back;
-  const cz = pos.z - Math.cos(car.heading) * back;
-  G.camera.position.lerp(new THREE.Vector3(cx, 4.6, cz), Math.min(1, 5 * dt));
+  let back = 10.5 + Math.abs(car.speed) * 0.08;
+  // Pull the camera in when a building would block the view.
+  while (back > 5) {
+    const tx = pos.x - Math.sin(car.heading) * back;
+    const tz = pos.z - Math.cos(car.heading) * back;
+    if (!G.hitsBuilding(tx, tz, 0.6)) break;
+    back -= 1.5;
+  }
+  const target = new THREE.Vector3(
+    pos.x - Math.sin(car.heading) * back, 4.6, pos.z - Math.cos(car.heading) * back);
+  // Snap when far away (staging, respawn) instead of a long swoop.
+  if (G.camera.position.distanceTo(target) > 30) G.camera.position.copy(target);
+  else G.camera.position.lerp(target, Math.min(1, 5 * dt));
   G.camera.lookAt(pos.x, pos.y + 1.4, pos.z);
   const targetFov = 60 + Math.abs(car.speed) * 0.35;
   if (Math.abs(G.camera.fov - targetFov) > 0.5) {
